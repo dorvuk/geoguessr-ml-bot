@@ -35,6 +35,7 @@ python scripts/download_mapillary.py \
 
 Important downloader features:
 
+- Single `/images` search call returns metadata + thumbnail URLs (no per-image detail call)
 - Retries with exponential backoff (`--max-retries`, `--retry-backoff`)
 - Structured error log (`--error-csv`)
 - Schema validation/migration for metadata

@@ -254,13 +254,23 @@ def mapillary_image_search(
     session: requests.Session,
     token: str,
     bbox: Tuple[float, float, float, float],
+    thumb_field: str,
     timeout: float,
     max_retries: int,
     backoff: float,
     limit: int = 200,
-) -> List[str]:
+) -> List[Dict[str, object]]:
     params = {
-        "fields": "id",
+        "fields": ",".join(
+            [
+                "id",
+                thumb_field,
+                "captured_at",
+                "geometry",
+                "compass_angle",
+                "sequence",
+            ]
+        ),
         "bbox": f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}",
         "limit": str(limit),
         "access_token": token,
@@ -277,61 +287,26 @@ def mapillary_image_search(
     if r.status_code >= 400:
         raise RuntimeError(f"{r.status_code} {r.text[:400]}")
     data = r.json()
-    return [str(item["id"]) for item in data.get("data", []) if "id" in item]
-
-
-def mapillary_image_detail(
-    session: requests.Session,
-    token: str,
-    image_id: str,
-    thumb_field: str,
-    timeout: float,
-    max_retries: int,
-    backoff: float,
-) -> Optional[Dict]:
-    fields = [
-        "id",
-        thumb_field,
-        "captured_at",
-        "geometry",
-        "compass_angle",
-        "sequence",
-    ]
-    params = {
-        "fields": ",".join(fields),
-        "access_token": token,
-    }
-    url = f"{GRAPH}/{image_id}"
-    r = request_with_retries(
-        session,
-        url,
-        params=params,
-        timeout=timeout,
-        max_retries=max_retries,
-        backoff=backoff,
-    )
-    if r.status_code == 404:
-        return None
-    if r.status_code >= 400:
-        raise RuntimeError(f"{r.status_code} {r.text[:400]}")
-    j = r.json()
-
-    thumb_url = j.get(thumb_field)
-    geom = j.get("geometry") or {}
-    coords = geom.get("coordinates")  # [lon, lat]
-    if not thumb_url or not coords or len(coords) != 2:
-        return None
-
-    lon, lat = float(coords[0]), float(coords[1])
-    return {
-        "image_id": str(j.get("id", image_id)),
-        "thumb_url": thumb_url,
-        "lon": lon,
-        "lat": lat,
-        "captured_at": j.get("captured_at", ""),
-        "compass_angle": j.get("compass_angle", ""),
-        "sequence": j.get("sequence", ""),
-    }
+    out: List[Dict[str, object]] = []
+    for item in data.get("data", []):
+        image_id = str(item.get("id", "")).strip()
+        thumb_url = item.get(thumb_field)
+        geom = item.get("geometry") or {}
+        coords = geom.get("coordinates")
+        if not image_id or not thumb_url or not coords or len(coords) != 2:
+            continue
+        out.append(
+            {
+                "image_id": image_id,
+                "thumb_url": str(thumb_url),
+                "lon": float(coords[0]),
+                "lat": float(coords[1]),
+                "captured_at": item.get("captured_at", ""),
+                "compass_angle": item.get("compass_angle", ""),
+                "sequence": item.get("sequence", ""),
+            }
+        )
+    return out
 
 
 def download_file(
@@ -450,7 +425,7 @@ def main() -> None:
         help="Where request/download failures are logged",
     )
     ap.add_argument("--seed", type=int, default=42, help="Random seed for bbox sampling/shuffle")
-    ap.add_argument("--sleep", type=float, default=0.05, help="Sleep between API calls (seconds)")
+    ap.add_argument("--sleep", type=float, default=0.0, help="Sleep between API calls (seconds)")
     args = ap.parse_args()
 
     random.seed(args.seed)
@@ -493,6 +468,9 @@ def main() -> None:
     # open metadata for append
     error_fields = ["ts", "stage", "sample_i", "image_id", "status", "message"]
     session = requests.Session()
+    searches = 0
+    skipped_seen = 0
+    skipped_sequence_cap = 0
     with open(meta_csv, "a", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
 
@@ -513,15 +491,17 @@ def main() -> None:
             small = (min_lon, min_lat, max_lon, max_lat)
 
             try:
-                ids = mapillary_image_search(
+                items = mapillary_image_search(
                     session,
                     token,
                     small,
+                    thumb_field=thumb_field,
                     timeout=args.request_timeout,
                     max_retries=args.max_retries,
                     backoff=args.retry_backoff,
                     limit=args.search_limit,
                 )
+                searches += 1
             except Exception as e:
                 print(f"[{i+1}/{args.samples}] search error: {e}")
                 append_error_row(
@@ -542,49 +522,20 @@ def main() -> None:
             time.sleep(args.sleep)
 
             # shuffle so we don't always pull the same order
-            random.shuffle(ids)
+            random.shuffle(items)
 
-            for image_id in ids:
+            for info in items:
                 if downloaded >= args.target:
                     break
+                image_id = str(info["image_id"])
                 if image_id in seen:
-                    continue
-
-                try:
-                    info = mapillary_image_detail(
-                        session,
-                        token,
-                        image_id,
-                        thumb_field=thumb_field,
-                        timeout=args.request_timeout,
-                        max_retries=args.max_retries,
-                        backoff=args.retry_backoff,
-                    )
-                except Exception as e:
-                    print(f"detail error for {image_id}: {e}")
-                    append_error_row(
-                        error_csv,
-                        {
-                            "ts": str(int(time.time())),
-                            "stage": "detail",
-                            "sample_i": str(i + 1),
-                            "image_id": image_id,
-                            "status": "error",
-                            "message": str(e)[:400],
-                        },
-                        error_fields,
-                    )
-                    time.sleep(args.sleep)
-                    continue
-
-                time.sleep(args.sleep)
-
-                if not info:
+                    skipped_seen += 1
                     continue
 
                 sequence = str(info.get("sequence", "") or "")
                 if args.max_per_sequence > 0 and sequence:
                     if seq_counts.get(sequence, 0) >= args.max_per_sequence:
+                        skipped_sequence_cap += 1
                         continue
 
                 ext = guess_ext_from_url(info["thumb_url"])
@@ -639,6 +590,9 @@ def main() -> None:
                 if downloaded % 50 == 0:
                     print(f"Downloaded: {downloaded}/{args.target}")
 
+    print(f"Search calls: {searches}")
+    print(f"Skipped because already seen: {skipped_seen}")
+    print(f"Skipped because sequence cap reached: {skipped_sequence_cap}")
     print(f"DONE. Total downloaded files: {downloaded}")
 
 
