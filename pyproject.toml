@@ -1,7 +1,7 @@
 [project]
 name = "geobot"
 version = "0.1.0"
-description = "Add your description here"
+description = ""
 readme = "README.md"
 authors = [
     { name = "Dorian Vuk", email = "vuk.dorian@gmail.com" }
@@ -14,8 +14,11 @@ dependencies = [
     "numpy>=2.4.1",
     "pandas>=3.0.0",
     "pillow>=12.1.0",
+    "requests>=2.32.5",
     "scikit-learn>=1.8.0",
     "timm>=1.0.24",
+    "torch>=2.3.0",
+    "torchvision>=0.18.0",
     "tqdm>=4.67.1",
     "transformers>=5.0.0",
 ]
