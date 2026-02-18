@@ -30,12 +30,42 @@ python scripts/download_mapillary.py \
   --bbox=13.5,42.0,19.5,46.6 \
   --target 5000 \
   --samples 3000 \
+  --half-size-deg 0.01 \
   --search-limit 200
+```
+
+Global preset (popular GeoGuessr countries):
+
+```bash
+python scripts/download_mapillary.py \
+  --country-preset popular \
+  --target 12000 \
+  --samples 10000 \
+  --half-size-deg 0.01 \
+  --search-limit 150
+```
+
+Custom global subset:
+
+```bash
+python scripts/download_mapillary.py \
+  --countries us,ca,gb,de,fr,es,it,jp,au,nz,br \
+  --target 8000 \
+  --samples 7000 \
+  --half-size-deg 0.01 \
+  --search-limit 150
+```
+
+List built-in country codes:
+
+```bash
+python scripts/download_mapillary.py --list-countries
 ```
 
 Important downloader features:
 
 - Single `/images` search call returns metadata + thumbnail URLs (no per-image detail call)
+- Global country sampling (`--country-preset` or `--countries`)
 - Retries with exponential backoff (`--max-retries`, `--retry-backoff`)
 - Structured error log (`--error-csv`)
 - Schema validation/migration for metadata

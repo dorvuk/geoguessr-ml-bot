@@ -242,7 +242,7 @@ def run(args: argparse.Namespace) -> int:
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(args.epochs, 1))
     criterion = torch.nn.CrossEntropyLoss()
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     centers = class_centroids(train_df, label_col="label_id")
     thresholds = DEFAULT_DISTANCE_THRESHOLDS_KM

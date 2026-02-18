@@ -11,6 +11,42 @@ import requests
 
 
 GRAPH = "https://graph.mapillary.com"
+POPULAR_COUNTRY_BBOXES: Dict[str, Tuple[float, float, float, float]] = {
+    "ar": (-73.7, -55.1, -53.6, -21.8),   # Argentina
+    "au": (112.9, -43.8, 153.7, -10.7),   # Australia
+    "at": (9.5, 46.3, 17.2, 49.1),        # Austria
+    "be": (2.5, 49.5, 6.4, 51.6),         # Belgium
+    "br": (-73.9, -33.8, -34.7, 5.3),     # Brazil
+    "ca": (-141.0, 41.7, -52.6, 83.1),    # Canada
+    "hr": (13.5, 42.3, 19.5, 46.6),       # Croatia
+    "cz": (12.0, 48.5, 18.9, 51.1),       # Czechia
+    "dk": (8.1, 54.5, 15.3, 57.8),        # Denmark
+    "fi": (20.6, 59.8, 31.6, 70.1),       # Finland
+    "fr": (-5.2, 41.2, 9.8, 51.3),        # France (metro)
+    "de": (5.9, 47.2, 15.1, 55.1),        # Germany
+    "gr": (19.2, 34.8, 28.3, 41.8),       # Greece
+    "hu": (16.1, 45.7, 22.9, 48.7),       # Hungary
+    "is": (-24.7, 63.2, -13.0, 66.6),     # Iceland
+    "id": (95.0, -10.9, 141.1, 5.9),      # Indonesia
+    "ie": (-10.7, 51.2, -5.3, 55.5),      # Ireland
+    "it": (6.6, 36.5, 18.6, 47.1),        # Italy
+    "jp": (129.4, 31.0, 145.8, 45.7),     # Japan
+    "mx": (-117.2, 14.3, -86.7, 32.7),    # Mexico
+    "nl": (3.2, 50.7, 7.3, 53.7),         # Netherlands
+    "nz": (166.4, -47.6, 178.6, -34.0),   # New Zealand
+    "no": (4.5, 57.9, 31.4, 71.3),        # Norway
+    "pl": (14.1, 49.0, 24.2, 54.9),       # Poland
+    "pt": (-9.6, 36.8, -6.0, 42.2),       # Portugal
+    "ro": (20.2, 43.5, 29.7, 48.3),       # Romania
+    "si": (13.3, 45.4, 16.7, 46.9),       # Slovenia
+    "es": (-9.4, 36.0, 3.4, 43.9),        # Spain
+    "se": (11.0, 55.3, 24.2, 69.1),       # Sweden
+    "ch": (5.9, 45.8, 10.6, 47.9),        # Switzerland
+    "th": (97.3, 5.6, 105.8, 20.5),       # Thailand
+    "tr": (26.0, 36.0, 45.0, 42.2),       # Turkey
+    "gb": (-8.7, 49.8, 1.9, 58.7),        # United Kingdom
+    "us": (-124.8, 24.3, -66.9, 49.4),    # United States (contiguous)
+}
 EXPECTED_METADATA_FIELDS = [
     "image_id",
     "thumb_url",
@@ -352,6 +388,41 @@ def parse_bbox(s: str) -> Tuple[float, float, float, float]:
     return min_lon, min_lat, max_lon, max_lat
 
 
+def parse_country_codes(raw: str) -> List[str]:
+    codes = [c.strip().lower() for c in raw.split(",") if c.strip()]
+    if not codes:
+        raise ValueError("countries list is empty")
+    unknown = [c for c in codes if c not in POPULAR_COUNTRY_BBOXES]
+    if unknown:
+        known = ",".join(sorted(POPULAR_COUNTRY_BBOXES))
+        raise ValueError(
+            f"unknown country codes: {','.join(unknown)}. "
+            f"Known codes: {known}"
+        )
+    return codes
+
+
+def choose_regions(
+    bbox_raw: Optional[str],
+    countries_raw: Optional[str],
+    preset: Optional[str],
+) -> List[Tuple[str, Tuple[float, float, float, float]]]:
+    selectors = int(bool(bbox_raw)) + int(bool(countries_raw)) + int(bool(preset))
+    if selectors > 1:
+        raise ValueError("Use only one of --bbox, --countries, or --country-preset")
+    if bbox_raw:
+        return [("bbox", parse_bbox(bbox_raw))]
+    if countries_raw:
+        codes = parse_country_codes(countries_raw)
+        return [(code, POPULAR_COUNTRY_BBOXES[code]) for code in codes]
+    if preset == "popular":
+        codes = sorted(POPULAR_COUNTRY_BBOXES)
+        return [(code, POPULAR_COUNTRY_BBOXES[code]) for code in codes]
+    raise ValueError(
+        "Provide one of: --bbox, --countries, or --country-preset popular"
+    )
+
+
 def resolve_path(raw: str, base_dir: Path) -> Path:
     path = Path(raw).expanduser()
     if not path.is_absolute():
@@ -361,12 +432,28 @@ def resolve_path(raw: str, base_dir: Path) -> Path:
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Download random Mapillary street-level thumbnails via bbox sampling."
+        description="Download random Mapillary street-level thumbnails via bbox or multi-country sampling."
     )
     ap.add_argument(
         "--bbox",
-        required=True,
+        default=None,
         help="min_lon,min_lat,max_lon,max_lat (e.g. '13.5,42.0,19.5,46.6')",
+    )
+    ap.add_argument(
+        "--countries",
+        default=None,
+        help="Comma-separated country codes (e.g. 'us,ca,gb,jp'). Use --list-countries to see options.",
+    )
+    ap.add_argument(
+        "--country-preset",
+        choices=["popular"],
+        default=None,
+        help="Named country preset. 'popular' targets common GeoGuessr countries.",
+    )
+    ap.add_argument(
+        "--list-countries",
+        action="store_true",
+        help="Print known country codes and exit",
     )
     ap.add_argument("--out-dir", default="data/raw/mapillary/images")
     ap.add_argument("--meta-csv", default="data/raw/mapillary/metadata.csv")
@@ -380,8 +467,8 @@ def main() -> None:
     ap.add_argument(
         "--half-size-deg",
         type=float,
-        default=0.002,
-        help="Half-size of the small bbox around each random point (~0.002 deg ~ 200m-ish lat)",
+        default=0.01,
+        help="Half-size of the small bbox around each random point (~0.01 deg ~ 1km-ish lat)",
     )
     ap.add_argument(
         "--thumb",
@@ -428,7 +515,19 @@ def main() -> None:
     ap.add_argument("--sleep", type=float, default=0.0, help="Sleep between API calls (seconds)")
     args = ap.parse_args()
 
+    if args.half_size_deg <= 0:
+        ap.error("--half-size-deg must be > 0")
+    if args.half_size_deg > 0.05:
+        ap.error("--half-size-deg too large for Mapillary search area limit; use <= 0.05")
+
     random.seed(args.seed)
+
+    if args.list_countries:
+        print("Available country codes and bbox:")
+        for code in sorted(POPULAR_COUNTRY_BBOXES):
+            bbox = POPULAR_COUNTRY_BBOXES[code]
+            print(f"{code}: {bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}")
+        return
 
     env_path = find_env_path()
     if env_path:
@@ -444,7 +543,10 @@ def main() -> None:
     if not token.startswith("MLY|") or len(token) < 40:
         raise RuntimeError(f"MAPILLARY_TOKEN looks wrong (len={len(token)})")
 
-    big_bbox = parse_bbox(args.bbox)
+    try:
+        regions = choose_regions(args.bbox, args.countries, args.country_preset)
+    except ValueError as e:
+        ap.error(str(e))
     repo_root = Path(__file__).resolve().parents[1]
     out_dir = resolve_path(args.out_dir, repo_root)
     meta_csv = resolve_path(args.meta_csv, repo_root)
@@ -463,6 +565,12 @@ def main() -> None:
     print(f"Existing sequences tracked: {len(seq_counts)}")
     print(f"Existing rows counted toward target: {downloaded}")
     print(f"Output image directory: {out_dir}")
+    print(f"Sampling regions: {len(regions)}")
+    if len(regions) <= 10:
+        print("Region codes:", ",".join([name for name, _ in regions]))
+    else:
+        preview = ",".join([name for name, _ in regions[:10]])
+        print(f"Region codes (first 10): {preview} ...")
     print(f"Target total files: {args.target}")
 
     # open metadata for append
@@ -471,6 +579,8 @@ def main() -> None:
     searches = 0
     skipped_seen = 0
     skipped_sequence_cap = 0
+    search_by_region: Dict[str, int] = {}
+    downloaded_by_region: Dict[str, int] = {}
     with open(meta_csv, "a", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
 
@@ -478,14 +588,15 @@ def main() -> None:
             if downloaded >= args.target:
                 break
 
-            lon, lat = rand_point_in_bbox(*big_bbox)
+            region_name, region_bbox = random.choice(regions)
+            lon, lat = rand_point_in_bbox(*region_bbox)
             small = small_bbox_around(lon, lat, args.half_size_deg)
 
-            # clamp small bbox to big bbox (so we don't drift outside)
-            min_lon = clamp(small[0], big_bbox[0], big_bbox[2])
-            min_lat = clamp(small[1], big_bbox[1], big_bbox[3])
-            max_lon = clamp(small[2], big_bbox[0], big_bbox[2])
-            max_lat = clamp(small[3], big_bbox[1], big_bbox[3])
+            # clamp small bbox to region bbox (so we don't drift outside)
+            min_lon = clamp(small[0], region_bbox[0], region_bbox[2])
+            min_lat = clamp(small[1], region_bbox[1], region_bbox[3])
+            max_lon = clamp(small[2], region_bbox[0], region_bbox[2])
+            max_lat = clamp(small[3], region_bbox[1], region_bbox[3])
             if min_lon >= max_lon or min_lat >= max_lat:
                 continue
             small = (min_lon, min_lat, max_lon, max_lat)
@@ -502,8 +613,9 @@ def main() -> None:
                     limit=args.search_limit,
                 )
                 searches += 1
+                search_by_region[region_name] = search_by_region.get(region_name, 0) + 1
             except Exception as e:
-                print(f"[{i+1}/{args.samples}] search error: {e}")
+                print(f"[{i+1}/{args.samples}] search error ({region_name}): {e}")
                 append_error_row(
                     error_csv,
                     {
@@ -586,6 +698,7 @@ def main() -> None:
                     seq_counts[sequence] = seq_counts.get(sequence, 0) + 1
                 seen.add(info["image_id"])
                 downloaded += 1
+                downloaded_by_region[region_name] = downloaded_by_region.get(region_name, 0) + 1
 
                 if downloaded % 50 == 0:
                     print(f"Downloaded: {downloaded}/{args.target}")
@@ -593,6 +706,16 @@ def main() -> None:
     print(f"Search calls: {searches}")
     print(f"Skipped because already seen: {skipped_seen}")
     print(f"Skipped because sequence cap reached: {skipped_sequence_cap}")
+    if downloaded_by_region:
+        parts = [
+            f"{name}:{count}"
+            for name, count in sorted(
+                downloaded_by_region.items(),
+                key=lambda kv: kv[1],
+                reverse=True,
+            )
+        ]
+        print("Downloaded by region:", " | ".join(parts))
     print(f"DONE. Total downloaded files: {downloaded}")
 
 
