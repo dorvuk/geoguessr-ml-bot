@@ -11,6 +11,27 @@ import streamlit as st
 from PIL import Image
 
 
+def st_image_compat(image_obj, caption: str) -> None:
+    try:
+        st.image(image_obj, caption=caption, use_container_width=True)
+    except TypeError:
+        st.image(image_obj, caption=caption, use_column_width=True)
+
+
+def st_dataframe_compat(df: pd.DataFrame) -> None:
+    try:
+        st.dataframe(df, use_container_width=True)
+    except TypeError:
+        st.dataframe(df)
+
+
+def st_primary_button_compat(label: str) -> bool:
+    try:
+        return st.button(label, type="primary")
+    except TypeError:
+        return st.button(label)
+
+
 def run_geobot_predict(
     image_bytes: bytes,
     image_suffix: str,
@@ -117,10 +138,10 @@ def main() -> None:
 
     left, right = st.columns([1, 1])
     with left:
-        st.image(pil_img, caption=uploaded.name, use_container_width=True)
+        st_image_compat(pil_img, caption=uploaded.name)
     with right:
         st.write("Ready to predict with the current settings.")
-        run_clicked = st.button("Run Prediction", type="primary")
+        run_clicked = st_primary_button_compat("Run Prediction")
 
     if not run_clicked:
         return
@@ -172,7 +193,7 @@ def main() -> None:
 
     neighbors_df = pd.DataFrame(payload.get("neighbors", []))
     st.subheader("Nearest Neighbors")
-    st.dataframe(neighbors_df, use_container_width=True)
+    st_dataframe_compat(neighbors_df)
 
     with st.expander("Raw Prediction JSON"):
         st.json(payload)
