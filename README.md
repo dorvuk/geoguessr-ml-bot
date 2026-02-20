@@ -132,6 +132,34 @@ Training artifacts:
 - median geolocation error (km) using class centroids
 - threshold accuracy (`<=25km`, `<=50km`, `<=200km`, `<=750km`)
 
+### 5. Build retrieval baseline (FAISS)
+
+This gives you a nearest-neighbor geolocation baseline from the trained classifier features.
+
+Extract embeddings for all splits:
+
+```bash
+uv run geobot embed --dataset-csv data/processed/mapillary/dataset.csv --checkpoint models/classifier_baseline/best.pt --out-npz models/retrieval/embeddings_all.npz --splits train,val,test --image-size 224 --batch-size 64 --device cuda --amp
+```
+
+Build a FAISS index from train split embeddings:
+
+```bash
+uv run geobot index --embeddings-npz models/retrieval/embeddings_all.npz --index-out models/retrieval/index.faiss --meta-out models/retrieval/index_meta.npz --summary-json models/retrieval/index_summary.json --splits train --metric cosine
+```
+
+Evaluate retrieval on test split:
+
+```bash
+uv run geobot eval-retrieval --query-embeddings-npz models/retrieval/embeddings_all.npz --index-path models/retrieval/index.faiss --index-meta-npz models/retrieval/index_meta.npz --query-splits test --k 1 --metric auto --out-json models/retrieval/retrieval_metrics.json --per-query-csv models/retrieval/retrieval_predictions_test.csv
+```
+
+Outputs:
+
+- `models/retrieval/retrieval_metrics.json` (aggregate retrieval metrics)
+- `models/retrieval/retrieval_predictions_test.csv` (per-image errors)
+- `models/retrieval/index.faiss` and `models/retrieval/index_meta.npz` (index artifacts)
+
 ## Recommended Iteration Loop
 
 1. Increase dataset coverage (more countries/regions)
