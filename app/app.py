@@ -11,6 +11,18 @@ import streamlit as st
 from PIL import Image
 
 
+def _streamlit_version_tuple() -> tuple[int, int, int]:
+    raw = getattr(st, "__version__", "0.0.0")
+    parts = raw.split(".")
+    nums = []
+    for p in parts[:3]:
+        token = "".join(ch for ch in p if ch.isdigit())
+        nums.append(int(token) if token else 0)
+    while len(nums) < 3:
+        nums.append(0)
+    return nums[0], nums[1], nums[2]
+
+
 def st_image_compat(image_obj, caption: str) -> None:
     try:
         st.image(image_obj, caption=caption, use_container_width=True)
@@ -19,6 +31,12 @@ def st_image_compat(image_obj, caption: str) -> None:
 
 
 def st_dataframe_compat(df: pd.DataFrame) -> None:
+    # Older Streamlit (for example 1.19.x) can fail on modern pandas/pyarrow
+    # with `LargeUtf8` during Arrow serialization.
+    if _streamlit_version_tuple() <= (1, 24, 0):
+        st.markdown(df.to_html(index=False), unsafe_allow_html=True)
+        return
+
     try:
         st.dataframe(df, use_container_width=True)
     except TypeError:
