@@ -160,6 +160,24 @@ Outputs:
 - `models/retrieval/retrieval_predictions_test.csv` (per-image errors)
 - `models/retrieval/index.faiss` and `models/retrieval/index_meta.npz` (index artifacts)
 
+### 6. Run single-image prediction
+
+```bash
+uv run geobot predict --image path/to/query.jpg --checkpoint models/classifier_fine_effb0_v1/best.pt --index-path models/retrieval/fine_effb0_train.faiss --index-meta-npz models/retrieval/fine_effb0_train_meta.npz --image-size 224 --k 1 --show-neighbors 5 --device cuda --amp --json-out models/retrieval/last_prediction.json
+```
+
+Outputs:
+
+- terminal prediction (`pred_lat`, `pred_lon`, confidence, nearest neighbors)
+- optional JSON file (`--json-out`)
+
+### 7. Launch simple UI (Streamlit)
+
+```bash
+uv add streamlit
+uv run streamlit run app/app.py
+```
+
 ## Recommended Iteration Loop
 
 1. Increase dataset coverage (more countries/regions)

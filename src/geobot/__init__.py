@@ -4,6 +4,7 @@ import sys
 from geobot.cmd_embed import register_subcommand as register_embed
 from geobot.cmd_eval_retrieval import register_subcommand as register_eval_retrieval
 from geobot.cmd_index import register_subcommand as register_index
+from geobot.cmd_predict import register_subcommand as register_predict
 from geobot.cmd_prepare import register_subcommand as register_prepare
 from geobot.cmd_qc import register_subcommand as register_qc
 from geobot.cmd_train import register_subcommand as register_train
@@ -21,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     register_embed(subparsers)
     register_index(subparsers)
     register_eval_retrieval(subparsers)
+    register_predict(subparsers)
     return parser
 
 
