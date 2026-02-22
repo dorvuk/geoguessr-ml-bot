@@ -176,7 +176,7 @@ Outputs:
 ### 6. Run single-image prediction
 
 ```bash
-uv run geobot predict --image path/to/query.jpg --checkpoint models/classifier_fine_effb0_v1/best.pt --index-path models/retrieval/fine_effb0_train.faiss --index-meta-npz models/retrieval/fine_effb0_train_meta.npz --image-size 224 --k 1 --show-neighbors 5 --device cuda --amp --json-out models/retrieval/last_prediction.json
+uv run geobot predict --image path/to/query.jpg --checkpoint models/classifier_fine_effb0_50k/best.pt --index-path models/retrieval/fine_effb0_50k_train.faiss --index-meta-npz models/retrieval/fine_effb0_50k_train_meta.npz --image-size 224 --k 1 --show-neighbors 5 --device cuda --amp --json-out models/retrieval/last_prediction.json
 ```
 
 Outputs:

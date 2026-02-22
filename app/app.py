@@ -127,9 +127,9 @@ def main() -> None:
     st.caption("Upload one street-view image and run retrieval-based geolocation.")
 
     repo_root = Path(__file__).resolve().parents[1]
-    default_checkpoint = repo_root / "models" / "classifier_fine_effb0_v1" / "best.pt"
-    default_index = repo_root / "models" / "retrieval" / "fine_effb0_train.faiss"
-    default_index_meta = repo_root / "models" / "retrieval" / "fine_effb0_train_meta.npz"
+    default_checkpoint = repo_root / "models" / "classifier_fine_effb0_50k" / "best.pt"
+    default_index = repo_root / "models" / "retrieval" / "fine_effb0_50k_train.faiss"
+    default_index_meta = repo_root / "models" / "retrieval" / "fine_effb0_50k_train_meta.npz"
 
     st.sidebar.header("Model Settings")
     checkpoint = st.sidebar.text_input("Checkpoint", value=str(default_checkpoint))
