@@ -1,16 +1,18 @@
 # GeoGuessr ML Bot (Geolocation Baseline)
 
-This repository now includes a working baseline pipeline for:
+This repository includes a working pipeline for:
 
 1. Downloading geotagged Mapillary images
 2. Running metadata/image quality checks
 3. Building deterministic train/val/test splits with grid-cell labels
-4. Training a baseline image classifier for geolocation
+4. Training classifier + retrieval geolocation models
+5. Running a Streamlit app for interactive predictions
 
 ## Requirements
 
 - Python 3.11+
 - `uv` (recommended) or another virtual environment manager
+- `git-lfs` (required for pulling model artifacts)
 
 ## Install
 
@@ -19,21 +21,101 @@ uv venv
 uv sync
 ```
 
-## Model Artifacts (Git LFS)
+## Remote App Setup (Recommended)
 
-Inference model files are stored with Git LFS.
+This is the fastest way to run the app on another machine.
 
-After cloning:
+1. Clone the repo:
+
+```bash
+git clone https://github.com/dorvuk/geoguessr-ml-bot.git
+cd geoguessr-ml-bot
+```
+
+2. Install and pull LFS model files:
 
 ```bash
 git lfs install
 git lfs pull
 ```
 
-Tracked serving profiles:
+3. Install Python dependencies:
 
-- `fine_effb0_50k` (best overall)
-- `fine_effb0_20k` (fallback/alternative)
+```bash
+uv venv
+uv sync
+```
+
+4. Launch the app:
+
+```bash
+uv run streamlit run app/app.py
+```
+
+5. Open the URL shown by Streamlit (usually `http://localhost:8501`).
+
+If this machine is remote (cloud/VPS), run:
+
+```bash
+uv run streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+Then open `http://<remote-ip>:8501` (or use SSH port forwarding).
+
+## What Gets Pulled Via LFS
+
+The repo tracks serving artifacts in Git LFS, including:
+
+- `models/classifier_fine_effb0_50k/best.pt` (primary)
+- `models/retrieval/fine_effb0_50k_train.faiss`
+- `models/retrieval/fine_effb0_50k_train_meta.npz`
+- `models/classifier_fine_effb0_v1/best.pt` (fallback/alternative)
+- `models/retrieval/fine_effb0_train.faiss`
+- `models/retrieval/fine_effb0_train_meta.npz`
+
+You can verify on any machine:
+
+```bash
+git lfs ls-files
+```
+
+## App Model Selection
+
+In the app sidebar:
+
+- `Primary Model Profile`: default is `fine_effb0_50k (best)`
+- `Enable Auto Fallback Model`: optional switch to `fine_effb0_20k` when confidence is low
+- `Low-confidence warning (<)`: threshold that warns user prediction is uncertain
+- `Override ... paths`: point app to custom checkpoints/indexes if you train new models
+
+To use your own model/index, you need three files:
+
+- checkpoint (`best.pt`)
+- FAISS index (`*.faiss`)
+- index metadata (`*_meta.npz`)
+
+## Updating Existing Remote Clone
+
+If the repo is already cloned on remote machine:
+
+```bash
+git pull
+git lfs pull
+uv sync
+```
+
+Then restart Streamlit.
+
+## Troubleshooting Remote Setup
+
+- `missing file` errors in app:
+  Run `git lfs pull` and verify files under `models/`.
+- `git lfs` command not found:
+  Install Git LFS first, then run `git lfs install`.
+- app starts but predictions fail:
+  Confirm model paths in sidebar match real files.
+- no GPU on remote machine:
+  Set app device to `cpu` in sidebar.
 
 ## Data Pipeline
 
@@ -203,7 +285,6 @@ Outputs:
 ### 7. Launch simple UI (Streamlit)
 
 ```bash
-uv add streamlit
 uv run streamlit run app/app.py
 ```
 
