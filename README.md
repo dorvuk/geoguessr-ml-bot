@@ -45,6 +45,19 @@ python scripts/download_mapillary.py \
   --search-limit 150
 ```
 
+Broader worldwide preset (adds more India/China/Africa/South-America):
+
+```bash
+python scripts/download_mapillary.py \
+  --country-preset global_balanced \
+  --target 50000 \
+  --samples 120000 \
+  --half-size-deg 0.01 \
+  --search-limit 250 \
+  --per-search-max-new 80 \
+  --download-workers 24
+```
+
 Custom global subset:
 
 ```bash

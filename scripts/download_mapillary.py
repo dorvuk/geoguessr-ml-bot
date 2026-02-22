@@ -3,7 +3,9 @@ import csv
 import os
 import random
 import shutil
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -46,6 +48,130 @@ POPULAR_COUNTRY_BBOXES: Dict[str, Tuple[float, float, float, float]] = {
     "tr": (26.0, 36.0, 45.0, 42.2),       # Turkey
     "gb": (-8.7, 49.8, 1.9, 58.7),        # United Kingdom
     "us": (-124.8, 24.3, -66.9, 49.4),    # United States (contiguous)
+    # Additional global coverage.
+    "in": (68.1, 6.5, 97.4, 35.7),        # India
+    "cn": (73.5, 18.1, 134.8, 53.6),      # China
+    "kr": (126.1, 33.1, 129.6, 38.7),     # South Korea
+    "tw": (119.3, 21.8, 122.1, 25.4),     # Taiwan
+    "my": (99.6, 0.9, 119.3, 7.4),        # Malaysia
+    "sg": (103.6, 1.2, 104.1, 1.5),       # Singapore
+    "vn": (102.1, 8.2, 109.5, 23.4),      # Vietnam
+    "ph": (116.9, 4.6, 126.6, 19.6),      # Philippines
+    "za": (16.4, -34.9, 32.9, -22.1),     # South Africa
+    "ke": (33.9, -4.8, 41.9, 5.1),        # Kenya
+    "eg": (24.7, 22.0, 36.9, 31.7),       # Egypt
+    "ma": (-13.2, 27.6, -1.0, 35.9),      # Morocco
+    "tn": (7.4, 30.2, 11.7, 37.6),        # Tunisia
+    "gh": (-3.3, 4.5, 1.4, 11.2),         # Ghana
+    "ng": (2.7, 4.3, 14.7, 13.9),         # Nigeria
+    "cl": (-75.7, -55.9, -66.4, -17.5),   # Chile
+    "co": (-79.1, -4.3, -66.8, 13.5),     # Colombia
+    "pe": (-81.4, -18.4, -68.7, -0.0),    # Peru
+    "uy": (-58.5, -35.2, -53.1, -30.0),   # Uruguay
+    "ec": (-81.1, -5.1, -75.2, 1.7),      # Ecuador
+}
+PRESET_COUNTRY_CODES: Dict[str, List[str]] = {
+    "popular": sorted(
+        [
+            "ar",
+            "at",
+            "au",
+            "be",
+            "br",
+            "ca",
+            "ch",
+            "cz",
+            "de",
+            "dk",
+            "es",
+            "fi",
+            "fr",
+            "gb",
+            "gr",
+            "hr",
+            "hu",
+            "id",
+            "ie",
+            "is",
+            "it",
+            "jp",
+            "mx",
+            "nl",
+            "no",
+            "nz",
+            "pl",
+            "pt",
+            "ro",
+            "se",
+            "si",
+            "th",
+            "tr",
+            "us",
+        ]
+    ),
+    "global_balanced": sorted(
+        [
+            # North America
+            "us",
+            "ca",
+            "mx",
+            # South America
+            "ar",
+            "br",
+            "cl",
+            "co",
+            "ec",
+            "pe",
+            "uy",
+            # Europe
+            "at",
+            "be",
+            "ch",
+            "cz",
+            "de",
+            "dk",
+            "es",
+            "fi",
+            "fr",
+            "gb",
+            "gr",
+            "hr",
+            "hu",
+            "ie",
+            "it",
+            "nl",
+            "no",
+            "pl",
+            "pt",
+            "ro",
+            "se",
+            "si",
+            # Asia
+            "cn",
+            "id",
+            "in",
+            "jp",
+            "kr",
+            "my",
+            "ph",
+            "sg",
+            "th",
+            "tr",
+            "tw",
+            "vn",
+            # Africa
+            "eg",
+            "gh",
+            "ke",
+            "ma",
+            "ng",
+            "tn",
+            "za",
+            # Oceania
+            "au",
+            "nz",
+        ]
+    ),
 }
 EXPECTED_METADATA_FIELDS = [
     "image_id",
@@ -70,6 +196,7 @@ KNOWN_METADATA_FIELDS = {
     "sequence_id",
     "source",
 }
+_thread_local = threading.local()
 
 
 def find_env_path() -> Optional[Path]:
@@ -266,6 +393,26 @@ def request_with_retries(
         return response
 
 
+def build_session(pool_size: int) -> requests.Session:
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(
+        pool_connections=pool_size,
+        pool_maxsize=pool_size,
+        max_retries=0,
+    )
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def thread_session(pool_size: int) -> requests.Session:
+    session = getattr(_thread_local, "session", None)
+    if session is None:
+        session = build_session(pool_size=pool_size)
+        _thread_local.session = session
+    return session
+
+
 def clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
@@ -370,6 +517,25 @@ def download_file(
                     f.write(chunk)
 
 
+def download_file_parallel(
+    url: str,
+    out_path: Path,
+    timeout: float,
+    max_retries: int,
+    backoff: float,
+    pool_size: int,
+) -> None:
+    session = thread_session(pool_size=pool_size)
+    download_file(
+        session,
+        url,
+        out_path,
+        timeout=timeout,
+        max_retries=max_retries,
+        backoff=backoff,
+    )
+
+
 def guess_ext_from_url(url: str) -> str:
     base = url.split("?")[0]
     ext = os.path.splitext(base)[1].lower()
@@ -415,11 +581,12 @@ def choose_regions(
     if countries_raw:
         codes = parse_country_codes(countries_raw)
         return [(code, POPULAR_COUNTRY_BBOXES[code]) for code in codes]
-    if preset == "popular":
-        codes = sorted(POPULAR_COUNTRY_BBOXES)
+    if preset and preset in PRESET_COUNTRY_CODES:
+        codes = PRESET_COUNTRY_CODES[preset]
         return [(code, POPULAR_COUNTRY_BBOXES[code]) for code in codes]
     raise ValueError(
-        "Provide one of: --bbox, --countries, or --country-preset popular"
+        "Provide one of: --bbox, --countries, or --country-preset "
+        f"({'|'.join(sorted(PRESET_COUNTRY_CODES))})"
     )
 
 
@@ -446,9 +613,9 @@ def main() -> None:
     )
     ap.add_argument(
         "--country-preset",
-        choices=["popular"],
+        choices=sorted(PRESET_COUNTRY_CODES.keys()),
         default=None,
-        help="Named country preset. 'popular' targets common GeoGuessr countries.",
+        help="Named country preset. 'global_balanced' adds more Africa/Asia/South-America coverage.",
     )
     ap.add_argument(
         "--list-countries",
@@ -483,6 +650,18 @@ def main() -> None:
         help="Max images per bbox search (lower = faster/less repetitive)",
     )
     ap.add_argument(
+        "--per-search-max-new",
+        type=int,
+        default=60,
+        help="Cap successful new downloads attempted from each search result (0 disables)",
+    )
+    ap.add_argument(
+        "--download-workers",
+        type=int,
+        default=16,
+        help="Parallel image download workers",
+    )
+    ap.add_argument(
         "--max-per-sequence",
         type=int,
         default=2,
@@ -511,6 +690,12 @@ def main() -> None:
         default="data/raw/mapillary/download_errors.csv",
         help="Where request/download failures are logged",
     )
+    ap.add_argument(
+        "--flush-every",
+        type=int,
+        default=100,
+        help="Flush metadata CSV every N successful rows",
+    )
     ap.add_argument("--seed", type=int, default=42, help="Random seed for bbox sampling/shuffle")
     ap.add_argument("--sleep", type=float, default=0.0, help="Sleep between API calls (seconds)")
     args = ap.parse_args()
@@ -519,10 +704,22 @@ def main() -> None:
         ap.error("--half-size-deg must be > 0")
     if args.half_size_deg > 0.05:
         ap.error("--half-size-deg too large for Mapillary search area limit; use <= 0.05")
+    if args.download_workers < 1:
+        ap.error("--download-workers must be >= 1")
+    if args.per_search_max_new < 0:
+        ap.error("--per-search-max-new must be >= 0")
+    if args.flush_every < 1:
+        ap.error("--flush-every must be >= 1")
 
     random.seed(args.seed)
 
     if args.list_countries:
+        print("Available presets:")
+        for preset_name in sorted(PRESET_COUNTRY_CODES):
+            codes = PRESET_COUNTRY_CODES[preset_name]
+            print(f"- {preset_name}: {len(codes)} countries")
+            print(f"  {','.join(codes)}")
+        print("")
         print("Available country codes and bbox:")
         for code in sorted(POPULAR_COUNTRY_BBOXES):
             bbox = POPULAR_COUNTRY_BBOXES[code]
@@ -566,6 +763,8 @@ def main() -> None:
     print(f"Existing rows counted toward target: {downloaded}")
     print(f"Output image directory: {out_dir}")
     print(f"Sampling regions: {len(regions)}")
+    print(f"Parallel download workers: {args.download_workers}")
+    print(f"Per-search max new downloads: {args.per_search_max_new}")
     if len(regions) <= 10:
         print("Region codes:", ",".join([name for name, _ in regions]))
     else:
@@ -575,13 +774,17 @@ def main() -> None:
 
     # open metadata for append
     error_fields = ["ts", "stage", "sample_i", "image_id", "status", "message"]
-    session = requests.Session()
+    session_pool_size = max(16, args.download_workers * 2)
+    session = build_session(pool_size=session_pool_size)
     searches = 0
     skipped_seen = 0
     skipped_sequence_cap = 0
     search_by_region: Dict[str, int] = {}
     downloaded_by_region: Dict[str, int] = {}
-    with open(meta_csv, "a", encoding="utf-8", newline="") as f:
+    rows_since_flush = 0
+    with open(meta_csv, "a", encoding="utf-8", newline="") as f, ThreadPoolExecutor(
+        max_workers=args.download_workers
+    ) as pool:
         w = csv.DictWriter(f, fieldnames=fieldnames)
 
         for i in range(args.samples):
@@ -636,8 +839,12 @@ def main() -> None:
             # shuffle so we don't always pull the same order
             random.shuffle(items)
 
+            pending_seq_counts: Dict[str, int] = {}
+            candidates: List[Dict[str, object]] = []
             for info in items:
-                if downloaded >= args.target:
+                if downloaded + len(candidates) >= args.target:
+                    break
+                if args.per_search_max_new > 0 and len(candidates) >= args.per_search_max_new:
                     break
                 image_id = str(info["image_id"])
                 if image_id in seen:
@@ -646,37 +853,55 @@ def main() -> None:
 
                 sequence = str(info.get("sequence", "") or "")
                 if args.max_per_sequence > 0 and sequence:
-                    if seq_counts.get(sequence, 0) >= args.max_per_sequence:
+                    existing = seq_counts.get(sequence, 0)
+                    pending = pending_seq_counts.get(sequence, 0)
+                    if existing + pending >= args.max_per_sequence:
                         skipped_sequence_cap += 1
                         continue
+                    pending_seq_counts[sequence] = pending + 1
 
-                ext = guess_ext_from_url(info["thumb_url"])
+                seen.add(image_id)
+                candidates.append(info)
+
+            if not candidates:
+                continue
+
+            futures = {}
+            for info in candidates:
+                ext = guess_ext_from_url(str(info["thumb_url"]))
                 local_path = out_dir / f"{info['image_id']}{ext}"
+                future = pool.submit(
+                    download_file_parallel,
+                    url=str(info["thumb_url"]),
+                    out_path=local_path,
+                    timeout=max(args.request_timeout, 60.0),
+                    max_retries=args.max_retries,
+                    backoff=args.retry_backoff,
+                    pool_size=session_pool_size,
+                )
+                futures[future] = (info, local_path, region_name)
 
+            for future in as_completed(futures):
+                info, local_path, item_region = futures[future]
+                image_id = str(info["image_id"])
+                sequence = str(info.get("sequence", "") or "")
                 try:
-                    download_file(
-                        session,
-                        info["thumb_url"],
-                        local_path,
-                        timeout=max(args.request_timeout, 60.0),
-                        max_retries=args.max_retries,
-                        backoff=args.retry_backoff,
-                    )
+                    future.result()
                 except Exception as e:
-                    print(f"download error for {info['image_id']}: {e}")
+                    seen.discard(image_id)
+                    print(f"download error for {image_id}: {e}")
                     append_error_row(
                         error_csv,
                         {
                             "ts": str(int(time.time())),
                             "stage": "download",
                             "sample_i": str(i + 1),
-                            "image_id": info["image_id"],
+                            "image_id": image_id,
                             "status": "error",
                             "message": str(e)[:400],
                         },
                         error_fields,
                     )
-                    time.sleep(args.sleep)
                     continue
 
                 rel_path = local_path.relative_to(repo_root)
@@ -693,15 +918,21 @@ def main() -> None:
                         "source": "mapillary",
                     }
                 )
-                f.flush()
+                rows_since_flush += 1
+                if rows_since_flush >= args.flush_every:
+                    f.flush()
+                    rows_since_flush = 0
                 if args.max_per_sequence > 0 and sequence:
                     seq_counts[sequence] = seq_counts.get(sequence, 0) + 1
                 seen.add(info["image_id"])
                 downloaded += 1
-                downloaded_by_region[region_name] = downloaded_by_region.get(region_name, 0) + 1
+                downloaded_by_region[item_region] = downloaded_by_region.get(item_region, 0) + 1
 
                 if downloaded % 50 == 0:
                     print(f"Downloaded: {downloaded}/{args.target}")
+
+        if rows_since_flush > 0:
+            f.flush()
 
     print(f"Search calls: {searches}")
     print(f"Skipped because already seen: {skipped_seen}")
