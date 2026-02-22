@@ -13,6 +13,22 @@ data/*
 models/*
 !data/.gitkeep
 !models/.gitkeep
+!models/classifier_fine_effb0_50k/
+models/classifier_fine_effb0_50k/*
+!models/classifier_fine_effb0_50k/best.pt
+!models/classifier_fine_effb0_50k/metrics.json
+!models/classifier_fine_effb0_v1/
+models/classifier_fine_effb0_v1/*
+!models/classifier_fine_effb0_v1/best.pt
+!models/classifier_fine_effb0_v1/metrics.json
+!models/retrieval/
+models/retrieval/*
+!models/retrieval/fine_effb0_50k_train.faiss
+!models/retrieval/fine_effb0_50k_train_meta.npz
+!models/retrieval/fine_effb0_train.faiss
+!models/retrieval/fine_effb0_train_meta.npz
+!models/retrieval/fine_effb0_50k_test_retrieval_k1.json
+!models/retrieval/fine_effb0_test_retrieval_k1.json
 
 .DS_Store
 Thumbs.db

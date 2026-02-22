@@ -1,0 +1,32 @@
+{
+  "cosine_temperature": 20.0,
+  "exclude_image_id": true,
+  "index_meta_npz": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\models\\retrieval\\fine_effb0_50k_train_meta.npz",
+  "index_path": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\models\\retrieval\\fine_effb0_50k_train.faiss",
+  "k": 1,
+  "metric": "cosine",
+  "nearest_neighbor_metrics": {
+    "acc_200km": 0.7356898975697931,
+    "acc_25km": 0.5551315525205864,
+    "acc_50km": 0.6143803976702149,
+    "acc_750km": 0.873066880899779,
+    "count": 4979,
+    "mean_km": 555.8219032050301,
+    "median_km": 10.565640761370744
+  },
+  "num_predictions": 4979,
+  "num_queries": 4979,
+  "query_embeddings_npz": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\models\\retrieval\\fine_effb0_50k_embeddings.npz",
+  "query_splits": [
+    "test"
+  ],
+  "weighted_metrics": {
+    "acc_200km": 0.7356898975697931,
+    "acc_25km": 0.5551315525205864,
+    "acc_50km": 0.6143803976702149,
+    "acc_750km": 0.873066880899779,
+    "count": 4979,
+    "mean_km": 555.8219032050303,
+    "median_km": 10.565640761370744
+  }
+}

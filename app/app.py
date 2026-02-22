@@ -16,15 +16,10 @@ MODEL_PROFILES = {
         "index": "models/retrieval/fine_effb0_50k_train.faiss",
         "meta": "models/retrieval/fine_effb0_50k_train_meta.npz",
     },
-    "mid_effb0_50k (fallback)": {
-        "checkpoint": "models/classifier_mid_effb0_50k/best.pt",
-        "index": "models/retrieval/mid_effb0_50k_train.faiss",
-        "meta": "models/retrieval/mid_effb0_50k_train_meta.npz",
-    },
-    "coarse_effb0_50k (fallback)": {
-        "checkpoint": "models/classifier_coarse_effb0_50k/best.pt",
-        "index": "models/retrieval/coarse_effb0_50k_train.faiss",
-        "meta": "models/retrieval/coarse_effb0_50k_train_meta.npz",
+    "fine_effb0_20k (fallback)": {
+        "checkpoint": "models/classifier_fine_effb0_v1/best.pt",
+        "index": "models/retrieval/fine_effb0_train.faiss",
+        "meta": "models/retrieval/fine_effb0_train_meta.npz",
     },
 }
 

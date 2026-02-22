@@ -19,6 +19,22 @@ uv venv
 uv sync
 ```
 
+## Model Artifacts (Git LFS)
+
+Inference model files are stored with Git LFS.
+
+After cloning:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+Tracked serving profiles:
+
+- `fine_effb0_50k` (best overall)
+- `fine_effb0_20k` (fallback/alternative)
+
 ## Data Pipeline
 
 ### 1. Download Mapillary data

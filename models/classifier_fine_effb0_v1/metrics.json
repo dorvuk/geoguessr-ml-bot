@@ -1,0 +1,36 @@
+{
+  "best_checkpoint": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\models\\classifier_fine_effb0_v1\\best.pt",
+  "best_epoch": 20,
+  "best_selection_metric": 0.5358306188925082,
+  "dataset_csv": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\data\\processed\\mapillary\\dataset_fine.csv",
+  "device": "cuda",
+  "epochs": 20,
+  "history_csv": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\models\\classifier_fine_effb0_v1\\history.csv",
+  "model_name": "efficientnet_b0",
+  "num_classes": 315,
+  "out_dir": "C:\\Users\\cropl\\Desktop\\stuff\\projects\\geoguessr-ml-bot\\models\\classifier_fine_effb0_v1",
+  "seed": 42,
+  "split_sizes": {
+    "test": 1813,
+    "train": 14944,
+    "val": 1842
+  },
+  "test_metrics": {
+    "acc_200km": 0.6955322669608384,
+    "acc_25km": 0.3463872035300607,
+    "acc_50km": 0.5355763927192498,
+    "acc_750km": 0.8593491450634307,
+    "loss": 2.627348041771133,
+    "median_km": 43.64152831396705,
+    "top1": 0.5587424158852731
+  },
+  "val_metrics": {
+    "acc_200km": 0.6644951140065146,
+    "acc_25km": 0.3317046688382193,
+    "acc_50km": 0.512486427795874,
+    "acc_750km": 0.8436482084690554,
+    "loss": 2.716530178579523,
+    "median_km": 46.40965148929434,
+    "top1": 0.5358306188925082
+  }
+}
