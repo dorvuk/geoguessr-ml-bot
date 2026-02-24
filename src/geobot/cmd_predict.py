@@ -1,4 +1,6 @@
 import argparse
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -88,11 +90,16 @@ def confidence_from_scores(scores: np.ndarray, metric: str) -> tuple[float, floa
 
 
 def run(args: argparse.Namespace) -> int:
+    if sys.platform == "darwin":
+        # macOS wheels for torch/faiss may ship separate OpenMP runtimes.
+        # Allow coexistence to avoid aborting during second runtime init.
+        os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
     try:
-        import faiss
         import timm
         import torch
         from torchvision import transforms
+        import faiss
     except ImportError as e:
         raise RuntimeError("Missing dependency for prediction. Run `uv sync`.") from e
 
