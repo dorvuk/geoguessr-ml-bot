@@ -89,7 +89,6 @@ def weights_from_scores(scores: np.ndarray, metric: str, cosine_temperature: flo
         logits = np.clip(logits, -60.0, 60.0)
         weights = np.exp(logits)
     else:
-        # For L2, FAISS returns squared distances. Closer neighbors should weigh more.
         d = np.maximum(s, 0.0)
         weights = 1.0 / (d + 1e-6)
     if not np.any(np.isfinite(weights)) or float(np.sum(weights)) <= 0.0:

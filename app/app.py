@@ -44,8 +44,6 @@ def st_image_compat(image_obj, caption: str) -> None:
 
 
 def st_dataframe_compat(df: pd.DataFrame) -> None:
-    # Older Streamlit (for example 1.19.x) can fail on modern pandas/pyarrow
-    # with `LargeUtf8` during Arrow serialization.
     if _streamlit_version_tuple() <= (1, 24, 0):
         st.markdown(df.to_html(index=False), unsafe_allow_html=True)
         return

@@ -87,7 +87,7 @@ def blend_two_points(
     ret_lon: np.ndarray,
     alpha: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    # Spherical blend via xyz averaging avoids dateline artifacts.
+    # spherical blend via xyz averaging avoids dateline artifacts
     cls_lat_r = np.radians(cls_lat)
     cls_lon_r = np.radians(cls_lon)
     ret_lat_r = np.radians(ret_lat)
@@ -288,7 +288,7 @@ def main() -> None:
     best_row = None
     best_pred = None
 
-    # Static alpha sweeps.
+    # static alpha sweeps
     for alpha in alpha_values:
         a = np.full_like(true_lat, fill_value=float(alpha), dtype=np.float64)
         pred_lat, pred_lon = blend_two_points(cls_lat, cls_lon, ret_lat, ret_lon, a)
@@ -313,7 +313,7 @@ def main() -> None:
             best_row = row
             best_pred = (pred_lat, pred_lon, dist)
 
-    # Dynamic alpha from retrieval confidence score.
+    # dynamic alpha from retrieval confidence score
     for low, high in dynamic_thresholds:
         a = (nn1_score - low) / (high - low)
         a = np.clip(a, 0.0, 1.0)

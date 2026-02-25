@@ -77,12 +77,12 @@ def confidence_from_scores(scores: np.ndarray, metric: str) -> tuple[float, floa
     top2 = float(s[1]) if s.size >= 2 else top1
 
     if metric == "cosine":
-        # Heuristic confidence, not calibrated probability.
+        # heuristic confidence, not calibrated probability
         similarity = np.clip((top1 + 1.0) / 2.0, 0.0, 1.0)
         margin = np.clip(top1 - top2, 0.0, 1.0)
         confidence = float(0.7 * similarity + 0.3 * margin)
     else:
-        # For L2, lower distance means better match.
+        # for L2, lower distance means better match
         dist_strength = float(1.0 / (1.0 + max(top1, 0.0)))
         margin = float(max(top2 - top1, 0.0) / (1.0 + max(top2 - top1, 0.0)))
         confidence = float(0.7 * dist_strength + 0.3 * margin)
@@ -91,8 +91,8 @@ def confidence_from_scores(scores: np.ndarray, metric: str) -> tuple[float, floa
 
 def run(args: argparse.Namespace) -> int:
     if sys.platform == "darwin":
-        # macOS wheels for torch/faiss may ship separate OpenMP runtimes.
-        # Allow coexistence to avoid aborting during second runtime init.
+        # macOS wheels for torch/faiss may ship separate OpenMP runtimes
+        # allow coexistence to avoid aborting during second runtime init
         os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
     try:

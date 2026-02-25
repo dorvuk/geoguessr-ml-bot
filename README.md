@@ -10,9 +10,9 @@ This repository includes a working pipeline for:
 
 ## Requirements
 
-- Python 3.11+
-- `uv` (recommended) or another virtual environment manager
-- `git-lfs` (required for pulling model artifacts)
+- `Python 3.11+`
+- `uv` (pip install uv)
+- `git-lfs`
 
 ## Install
 
@@ -21,9 +21,7 @@ uv venv
 uv sync
 ```
 
-## Remote App Setup (Recommended)
-
-This is the fastest way to run the app on another machine.
+## Remote App Setup
 
 1. Clone the repo:
 
@@ -52,16 +50,6 @@ uv sync
 uv run streamlit run app/app.py
 ```
 
-5. Open the URL shown by Streamlit (usually `http://localhost:8501`).
-
-If this machine is remote (cloud/VPS), run:
-
-```bash
-uv run streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
-```
-
-Then open `http://<remote-ip>:8501` (or use SSH port forwarding).
-
 ## What Gets Pulled Via LFS
 
 The repo tracks serving artifacts in Git LFS, including:
@@ -87,24 +75,6 @@ In the app sidebar:
 - `Enable Auto Fallback Model`: optional switch to `fine_effb0_20k` when confidence is low
 - `Low-confidence warning (<)`: threshold that warns user prediction is uncertain
 - `Override ... paths`: point app to custom checkpoints/indexes if you train new models
-
-To use your own model/index, you need three files:
-
-- checkpoint (`best.pt`)
-- FAISS index (`*.faiss`)
-- index metadata (`*_meta.npz`)
-
-## Updating Existing Remote Clone
-
-If the repo is already cloned on remote machine:
-
-```bash
-git pull
-git lfs pull
-uv sync
-```
-
-Then restart Streamlit.
 
 ## Troubleshooting Remote Setup
 
@@ -143,7 +113,7 @@ python scripts/download_mapillary.py \
   --search-limit 150
 ```
 
-Broader worldwide preset (adds more India/China/Africa/South-America):
+Broader worldwide preset (adds more India/China/Africa/SouthAmerica):
 
 ```bash
 python scripts/download_mapillary.py \
@@ -287,11 +257,3 @@ Outputs:
 ```bash
 uv run streamlit run app/app.py
 ```
-
-## Recommended Iteration Loop
-
-1. Increase dataset coverage (more countries/regions)
-2. Tune `--cell-size-deg` and `--min-class-count`
-3. Try stronger backbones (`--model-name`, e.g. `efficientnet_b0`, `convnext_tiny`)
-4. Compare augmentations, batch size, learning rate, and epochs
-5. Track results by keeping `metrics.json` per run directory

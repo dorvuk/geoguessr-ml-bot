@@ -152,7 +152,7 @@ def evaluate_setting(
         local_neigh = neigh[:use_n]
         top1_scores[i] = float(local_scores[0])
 
-        # Confidence gate: if top1-top2 margin is tiny, avoid averaging and keep top1.
+        # if top1-top2 margin is tiny, avoid averaging and keep top1
         if margin_threshold > 0.0 and local_scores.size >= 2 and metric == "cosine":
             margin = float(local_scores[0] - local_scores[1])
             if margin < margin_threshold:
@@ -175,7 +175,7 @@ def write_confidence_bins(path: Path, top1_scores: np.ndarray, dist_km: np.ndarr
     bins = [0.0, 0.45, 0.55, 0.65, 0.75, 1.01]
     labels = ["<0.45", "0.45-0.55", "0.55-0.65", "0.65-0.75", ">=0.75"]
     if metric != "cosine":
-        # Convert l2/squared distance to a bounded strength for binning.
+        # convert l2/squared distance to a bounded strength for binning
         top1_scores = 1.0 / (1.0 + np.maximum(top1_scores, 0.0))
     valid = np.isfinite(top1_scores) & np.isfinite(dist_km)
     s = top1_scores[valid]

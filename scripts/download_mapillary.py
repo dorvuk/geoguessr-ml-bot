@@ -48,7 +48,6 @@ POPULAR_COUNTRY_BBOXES: Dict[str, Tuple[float, float, float, float]] = {
     "tr": (26.0, 36.0, 45.0, 42.2),       # Turkey
     "gb": (-8.7, 49.8, 1.9, 58.7),        # United Kingdom
     "us": (-124.8, 24.3, -66.9, 49.4),    # United States (contiguous)
-    # Additional global coverage.
     "in": (68.1, 6.5, 97.4, 35.7),        # India
     "cn": (73.5, 18.1, 134.8, 53.6),      # China
     "kr": (126.1, 33.1, 129.6, 38.7),     # South Korea
